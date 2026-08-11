@@ -1,5 +1,5 @@
-const CACHE = 'water-tracker-v2';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon.svg'];
+const CACHE = 'water-tracker-v3';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './firebase-sync.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));

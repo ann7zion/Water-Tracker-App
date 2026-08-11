@@ -6,6 +6,7 @@ const WAKE_HOUR = 7;
 const SLEEP_HOUR = 23;
 const STORAGE_PREFIX = 'wt_';
 const LAST_CHECK_KEY = 'wt_last_check_iso';
+const SPACE_KEY = 'wt_sync_space';
 
 const TYPE_LABEL = { water: 'Water', buttermilk: 'Buttermilk', tea: 'Tea', coffee: 'Coffee' };
 
@@ -46,6 +47,8 @@ let day = loadDay(today);
 const el = {
   todayLabel: document.getElementById('today-label'),
   notifBtn: document.getElementById('notif-btn'),
+  syncBtn: document.getElementById('sync-btn'),
+  syncStatus: document.getElementById('sync-status'),
   catchupBanner: document.getElementById('catchup-banner'),
   catchupText: document.getElementById('catchup-text'),
   catchupDismiss: document.getElementById('catchup-dismiss'),
@@ -105,8 +108,9 @@ function render() {
 }
 
 function renderHistory() {
+  const dayKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
   const keys = Object.keys(localStorage)
-    .filter((k) => k.startsWith(STORAGE_PREFIX) && k !== STORAGE_PREFIX + today && k !== LAST_CHECK_KEY)
+    .filter((k) => k.startsWith(STORAGE_PREFIX) && dayKeyPattern.test(k.slice(STORAGE_PREFIX.length)) && k !== STORAGE_PREFIX + today)
     .sort()
     .reverse()
     .slice(0, 7);
@@ -129,15 +133,18 @@ function renderHistory() {
 }
 
 function logDrink(type) {
-  day.entries.push({ type, ts: new Date().toISOString() });
+  const entry = { id: crypto.randomUUID(), type, ts: new Date().toISOString(), date: today };
+  day.entries.push(entry);
   saveDay(today, day);
   render();
+  pushEntry(entry);
 }
 
 el.workoutToggle.addEventListener('change', () => {
   day.workout = el.workoutToggle.checked;
   saveDay(today, day);
   render();
+  pushWorkout(today, day.workout);
 });
 
 document.querySelectorAll('.log-btn').forEach((btn) => {
@@ -182,6 +189,106 @@ el.notifBtn.addEventListener('click', async () => {
   updateNotifBtn();
 });
 
+let syncModulePromise = null;
+function loadSyncModule() {
+  // Dynamic import keeps the Firebase SDK (and its CDN fetches) out of the
+  // load path entirely until sync is actually turned on, so the app stays
+  // fully usable offline when it isn't configured.
+  if (!syncModulePromise) syncModulePromise = import('./firebase-sync.js');
+  return syncModulePromise;
+}
+
+function getSpaceId() {
+  return localStorage.getItem(SPACE_KEY);
+}
+
+async function pushEntry(entry) {
+  const spaceId = getSpaceId();
+  if (!spaceId) return;
+  try {
+    const { logEntryRemote } = await loadSyncModule();
+    await logEntryRemote(spaceId, entry);
+  } catch (err) {
+    console.error('Sync push failed (will retry once Firestore reconnects)', err);
+  }
+}
+
+async function pushWorkout(date, workout) {
+  const spaceId = getSpaceId();
+  if (!spaceId) return;
+  try {
+    const { setWorkoutRemote } = await loadSyncModule();
+    await setWorkoutRemote(spaceId, date, workout);
+  } catch (err) {
+    console.error('Sync push failed (will retry once Firestore reconnects)', err);
+  }
+}
+
+function applyRemoteEntries(entries) {
+  const byDate = {};
+  for (const entry of entries) {
+    (byDate[entry.date] ??= []).push(entry);
+  }
+  for (const [date, list] of Object.entries(byDate)) {
+    const existing = loadDay(date);
+    existing.entries = list;
+    saveDay(date, existing);
+  }
+  if (byDate[today]) day = loadDay(today);
+  render();
+}
+
+function applyRemoteDays(days) {
+  for (const d of days) {
+    const existing = loadDay(d.date);
+    existing.workout = !!d.workout;
+    saveDay(d.date, existing);
+  }
+  if (days.some((d) => d.date === today)) day = loadDay(today);
+  render();
+}
+
+let unsubscribeSpace = null;
+async function startSync(spaceId) {
+  if (unsubscribeSpace) unsubscribeSpace();
+  try {
+    const { subscribeToSpace } = await loadSyncModule();
+    unsubscribeSpace = subscribeToSpace(spaceId, (kind, data) => {
+      if (kind === 'entries') applyRemoteEntries(data);
+      else applyRemoteDays(data);
+      const time = new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      el.syncStatus.textContent = `Synced · ${time}`;
+    });
+  } catch (err) {
+    console.error('Could not start sync', err);
+    el.syncStatus.textContent = 'Sync failed to connect';
+  }
+}
+
+function updateSyncBtn() {
+  const on = !!getSpaceId();
+  el.syncBtn.classList.toggle('active', on);
+  el.syncBtn.title = on ? 'Sync connected (tap to change or disconnect)' : 'Connect sync across devices';
+}
+
+el.syncBtn.addEventListener('click', () => {
+  const current = getSpaceId() || '';
+  const value = prompt('Shared sync ID — use the exact same value on every device you want linked:', current);
+  if (value === null) return;
+  const trimmed = value.trim();
+  localStorage.removeItem(SPACE_KEY);
+  if (unsubscribeSpace) {
+    unsubscribeSpace();
+    unsubscribeSpace = null;
+  }
+  el.syncStatus.textContent = '';
+  if (trimmed) {
+    localStorage.setItem(SPACE_KEY, trimmed);
+    startSync(trimmed);
+  }
+  updateSyncBtn();
+});
+
 function withinWakeWindow(now = new Date()) {
   const h = now.getHours();
   return h >= WAKE_HOUR && h < SLEEP_HOUR;
@@ -217,6 +324,9 @@ function startHourlyScheduler() {
   render();
   await registerServiceWorker();
   updateNotifBtn();
+  updateSyncBtn();
+  const spaceId = getSpaceId();
+  if (spaceId) startSync(spaceId);
   startHourlyScheduler();
   window.addEventListener('focus', () => {
     day = loadDay(today);

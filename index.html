@@ -20,8 +20,12 @@
         <p id="today-label" class="muted"></p>
       </div>
     </div>
-    <button id="notif-btn" class="icon-btn" title="Enable hourly reminders">🔔</button>
+    <div class="header-actions">
+      <button id="sync-btn" class="icon-btn" title="Connect sync across devices">🔄</button>
+      <button id="notif-btn" class="icon-btn" title="Enable hourly reminders">🔔</button>
+    </div>
   </header>
+  <p id="sync-status" class="muted sync-status"></p>
 
   <div id="catchup-banner" class="banner hidden">
     <span id="catchup-text"></span>
@@ -90,6 +94,6 @@
   </footer>
 
 </div>
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
