@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Water Tracker</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<meta name="theme-color" content="#1e88e5" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="icon.svg" alt="" class="brand-icon" />
+      <div>
+        <h1>Water Tracker</h1>
+        <p id="today-label" class="muted"></p>
+      </div>
+    </div>
+    <button id="notif-btn" class="icon-btn" title="Enable hourly reminders">🔔</button>
+  </header>
+
+  <div id="catchup-banner" class="banner hidden">
+    <span id="catchup-text"></span>
+    <button id="catchup-dismiss" class="text-btn">Dismiss</button>
+  </div>
+
+  <section class="card workout-card">
+    <label class="switch-row">
+      <span>Worked out today</span>
+      <span class="switch">
+        <input type="checkbox" id="workout-toggle" />
+        <span class="slider"></span>
+      </span>
+    </label>
+  </section>
+
+  <section class="card progress-card">
+    <div class="ring-wrap">
+      <svg viewBox="0 0 120 120" class="ring">
+        <circle cx="60" cy="60" r="52" class="ring-bg" />
+        <circle cx="60" cy="60" r="52" class="ring-fg" id="ring-fg" />
+      </svg>
+      <div class="ring-center">
+        <span id="glasses-count">0</span>
+        <span class="muted">/ <span id="glasses-target">14</span> glasses</span>
+      </div>
+    </div>
+    <div class="progress-meta">
+      <p><strong id="liters-so-far">0.0</strong> L of <strong id="liters-target">3.5</strong> L target</p>
+      <p id="pace-text" class="muted"></p>
+    </div>
+  </section>
+
+  <section class="card log-card">
+    <h2>Log a drink</h2>
+    <div class="log-grid">
+      <button class="log-btn water" data-type="water">
+        <span class="log-icon">💧</span><span>Water</span>
+      </button>
+      <button class="log-btn buttermilk" data-type="buttermilk">
+        <span class="log-icon">🥛</span><span>Buttermilk</span>
+      </button>
+      <button class="log-btn tea" data-type="tea">
+        <span class="log-icon">🍵</span><span>Tea</span>
+      </button>
+      <button class="log-btn coffee" data-type="coffee">
+        <span class="log-icon">☕</span><span>Coffee</span>
+      </button>
+    </div>
+    <p class="hint">Each tea/coffee adds 150 ml to today's water target.</p>
+  </section>
+
+  <section class="card timeline-card">
+    <h2>Today's log</h2>
+    <ul id="timeline" class="timeline"></ul>
+    <p id="timeline-empty" class="muted">Nothing logged yet.</p>
+  </section>
+
+  <section class="card history-card">
+    <h2>History</h2>
+    <ul id="history" class="history"></ul>
+  </section>
+
+  <footer class="foot muted">
+    <p>Awake window 7:00 AM–11:00 PM · Everything stored only on this device.</p>
+  </footer>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>
